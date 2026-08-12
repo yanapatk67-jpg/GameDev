@@ -1,13 +1,16 @@
 "use client";
 
 import * as THREE from "three";
-import React from "react";
-import { useGLTF, useAnimations } from "@react-three/drei";
+import React, { JSX } from "react";
+import {
+  useGLTF,
+  useAnimations,
+} from "@react-three/drei";
 import { SkeletonUtils } from "three-stdlib";
 
 
 // ========================================
-// Strong Enemy Models
+// Strong Models
 // ========================================
 
 export const STRONG_IDLE_URL =
@@ -21,8 +24,20 @@ export const STRONG_ATTACK_URL =
 
 
 // ========================================
-// ทำ Animation ให้อยู่กับที่
-// ป้องกัน Root Motion ดันโมเดลออกจาก Collider
+// Strong Model Settings
+// ========================================
+
+// ทั้ง 3 ไฟล์มีขนาด geometry เล็กมาก
+// ขนาด โมเดล
+// จึงต้องขยายให้เท่ากัน
+const MODEL_SCALE = 130;
+
+// จุดยืนของโมเดล
+const MODEL_OFFSET_Y = 0;
+
+
+// ========================================
+// Animation
 // ========================================
 
 function toInPlaceClip(
@@ -45,7 +60,10 @@ function toInPlaceClip(
       i < track.values.length;
       i += 3
     ) {
+      // ล็อก Root Motion แนว X
       track.values[i] = 0;
+
+      // ล็อก Root Motion แนว Y
       track.values[i + 1] = 0;
     }
   }
@@ -58,63 +76,99 @@ function toInPlaceClip(
 // Props
 // ========================================
 
-type StrongModelProps = {
-  modelUrl: string;
-  paused?: boolean;
-  visible?: boolean;
-};
+type StrongModelProps =
+  JSX.IntrinsicElements["group"] & {
+    animation?: string;
+    modelUrl: string;
+    paused?: boolean;
+  };
 
 
 // ========================================
-// Strong Model
+// StrongModel
 // ========================================
 
 export default function StrongModel({
+  animation,
   modelUrl,
   paused = false,
-  visible = true,
+  ...groupProps
 }: StrongModelProps) {
 
   const groupRef =
     React.useRef<THREE.Group>(null);
 
-  const { scene, animations } =
-    useGLTF(modelUrl);
+  const previousAction =
+    React.useRef<
+      THREE.AnimationAction | null
+    >(null);
 
 
-  // แยก Skeleton ของแต่ละตัว
-  const clonedScene = React.useMemo(
-    () => SkeletonUtils.clone(scene),
-    [scene]
-  );
+  // ======================================
+  // Load GLB
+  // ======================================
+
+  const {
+    scene,
+    animations,
+  } = useGLTF(modelUrl);
 
 
-  // ทำ Animation ให้อยู่กับที่
+  // ======================================
+  // Clone Skeleton
+  // ======================================
+
+  const clonedScene =
+    React.useMemo(
+      () =>
+        SkeletonUtils.clone(scene),
+      [scene]
+    );
+
+
+  // ======================================
+  // Fix Root Motion
+  // ======================================
+
   const inPlaceAnimations =
     React.useMemo(
       () =>
-        animations.map(toInPlaceClip),
+        animations.map(
+          toInPlaceClip
+        ),
       [animations]
     );
 
 
-  // ตั้งค่า Mesh
+  // ======================================
+  // Mesh Settings
+  // ======================================
+
   React.useEffect(() => {
 
-    clonedScene.traverse((object) => {
+    clonedScene.traverse(
+      (object) => {
 
-      if (object instanceof THREE.Mesh) {
+        if (
+          object instanceof THREE.Mesh
+        ) {
 
-        object.castShadow = true;
-        object.receiveShadow = true;
+          object.castShadow = true;
+          object.receiveShadow = true;
 
-        // ป้องกันโมเดลหายตอน Animation
-        object.frustumCulled = false;
+          // ป้องกันโมเดลหายจาก Frustum
+          object.frustumCulled = false;
+        }
+
       }
-    });
+    );
 
   }, [clonedScene]);
 
+
+  // ======================================
+  // Animation Controller
+  // ======================================
 
   const {
     actions,
@@ -125,61 +179,137 @@ export default function StrongModel({
   );
 
 
-  /*
-   * Strong บางไฟล์อาจไม่มี Animation
-   * ดังนั้นถ้าไม่มี names ก็แค่แสดงโมเดล
-   */
-
-  const animationName =
-    names.length > 0
-      ? names[0]
-      : undefined;
+  console.log(
+    "STRONG:",
+    modelUrl,
+    names
+  );
 
 
-  // ========================================
-  // เริ่ม Animation
-  // ========================================
+  // ======================================
+  // เลือก Animation
+  // ======================================
+
+  const clipName =
+    names.length === 0
+      ? undefined
+      : (
+          animation &&
+          names.includes(animation)
+        )
+        ? animation
+        : names[0];
+
+
+  // ======================================
+  // Play Animation
+  // ======================================
 
   React.useEffect(() => {
 
-    if (!animationName) {
-      return;
-    }
-
     const action =
-      actions[animationName];
+      clipName
+        ? actions[clipName]
+        : undefined;
 
     if (!action) {
       return;
     }
 
-    action.reset();
+
+    const previous =
+      previousAction.current;
+
+
+    previousAction.current =
+      action;
+
+
+    action.reset().play();
+
+
+    if (
+      previous &&
+      previous !== action
+    ) {
+
+      action
+        .setEffectiveWeight(0)
+        .fadeIn(0.2);
+
+      previous.fadeOut(0.2);
+
+      return;
+    }
+
+
     action.setEffectiveWeight(1);
-    action.setEffectiveTimeScale(
-      paused ? 0 : 1
-    );
-    action.play();
 
   }, [
     actions,
-    animationName,
+    clipName,
+  ]);
+
+
+  // ======================================
+  // Pause / Run
+  // ======================================
+
+  React.useEffect(() => {
+
+    const action =
+      clipName
+        ? actions[clipName]
+        : undefined;
+
+    if (!action) {
+      return;
+    }
+
+
+    action.setEffectiveTimeScale(
+      paused ? 0 : 1
+    );
+
+  }, [
+    actions,
+    clipName,
     paused,
   ]);
 
 
-  // ========================================
-  // แสดง Model
-  // ========================================
+  // ======================================
+  // Render
+  // ======================================
 
   return (
     <group
       ref={groupRef}
-      visible={visible}
+      {...groupProps}
       dispose={null}
     >
-      <primitive
-        object={clonedScene}
-      />
+
+      {/* จุดอ้างอิงเดียวกันทั้ง 3 โมเดล */}
+
+      <group
+        position={[
+          0,
+          MODEL_OFFSET_Y,
+          0,
+        ]}
+        scale={[
+          MODEL_SCALE,
+          MODEL_SCALE,
+          MODEL_SCALE,
+        ]}
+      >
+
+        <primitive
+          object={clonedScene}
+        />
+
+      </group>
+
     </group>
   );
 }

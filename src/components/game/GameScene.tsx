@@ -8,7 +8,9 @@ import Map from "./Map";
 import Player from "./Player";
 import PushableBox from "./PushableBox";
 import Enemy from "./Enemy";
+import Enemy2 from "./Enemy2";
 import { GameProvider } from "./GameContext";
+
 
 export default function GameScene() {
   return (
@@ -55,6 +57,8 @@ export default function GameScene() {
             <Player />
 
             <Enemy position={[10, 2, 0]} />
+
+            <Enemy2 position={[2, 2, 0]} />
           </Physics>
         </GameProvider>
       </Canvas>

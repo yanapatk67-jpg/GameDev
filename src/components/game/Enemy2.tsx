@@ -18,112 +18,199 @@ import {
 
 import * as THREE from "three";
 
-import { Model } from "./GIgieeee";
+import StrongModel, {
+  STRONG_IDLE_URL,
+  STRONG_RUN_URL,
+  STRONG_ATTACK_URL,
+} from "./StrongModel";
+
 import { useGameContext } from "./GameContext";
 
 
+// ========================================
+// Rapier Intersection Event
+// ========================================
+
 type RapierIntersectionEvent = {
   other: {
-    collider: RapierCollider & { handle: number };
-    rigidBody?: RapierRigidBody | null;
-    rigidBodyObject?: { name?: string } | null;
+    collider:
+    RapierCollider & {
+      handle: number;
+    };
+
+    rigidBody?:
+    RapierRigidBody | null;
+
+    rigidBodyObject?:
+    {
+      name?: string;
+    } | null;
   };
 };
 
 
+// ========================================
+// Enemy2 Props
+// ========================================
+
 type Enemy2Props = {
-  position: [number, number, number];
+  position: [
+    number,
+    number,
+    number
+  ];
 };
 
 
-// ==============================
+// ========================================
 // Strong Enemy Settings
-// ==============================
-
-const IDLE_MODEL_URL = "/player/Storngidel.glb";
-const MODEL_URL = "/player/StorngRunning.glb";
-const ATTACK_MODEL_URL = "/player/StorngAttack.glb";
+// ========================================
 
 const ENEMY_SPEED = 7;
+
 const ENEMY_DETECT_RANGE = 60;
 
 const ATTACK_DURATION = 0.8;
+
 const ATTACK_COOLDOWN = 0.35;
 
 
-// ==============================
-// Collider
-// ==============================
+// ========================================
+// Collider Settings
+// ปรับขนาด Collider  (hitbox) ให้เหมาะสมกับโมเดล
+// ========================================
 
-// ปรับตามขนาดของโมเดล Strong
-const ENEMY_HALF_LENGTH = 0.3;
-const ENEMY_HALF_HEIGHT = 1.2;
-const ENEMY_HALF_WIDTH = 0.4;
+const ENEMY_HALF_LENGTH = 0.2;
 
-const ENEMY_COLLIDER_OFFSET_Y = ENEMY_HALF_HEIGHT;
+const ENEMY_HALF_HEIGHT = 0.8;
 
+const ENEMY_HALF_WIDTH = 0.25;
+
+const ENEMY_COLLIDER_OFFSET_Y =
+  ENEMY_HALF_HEIGHT;
+
+
+// ========================================
+// Enemy2
+// ========================================
 
 export default function Enemy2({
   position,
 }: Enemy2Props) {
 
-  const rigidBodyRef = useRef<RapierRigidBody>(null);
-  const modelRef = useRef<THREE.Group>(null);
+  const rigidBodyRef =
+    useRef<RapierRigidBody>(null);
 
-  const { playerPosition } = useGameContext();
+  const modelRef =
+    useRef<THREE.Group>(null);
 
-  const [enemyState, setEnemyState] = useState<
-    "run" | "attack" | "idle"
+
+  const {
+    playerPosition,
+  } = useGameContext();
+
+
+  // ======================================
+  // Enemy State
+  // ======================================
+
+  const [
+    enemyState,
+    setEnemyState,
+  ] = useState<
+    "run" |
+    "attack" |
+    "idle"
   >("idle");
 
-  const stateRef = useRef<
-    "run" | "attack" | "idle"
-  >("idle");
 
-  const actionTimerRef = useRef<number>(0);
+  const stateRef =
+    useRef<
+      "run" |
+      "attack" |
+      "idle"
+    >("idle");
+
+
+  const actionTimerRef =
+    useRef<number>(0);
+
+
+  // ======================================
+  // Player Hit Detection
+  // ======================================
 
   const playerCollidersInHitBlock =
-    useRef<Set<number>>(new Set());
+    useRef<Set<number>>(
+      new Set()
+    );
 
+
+  // ======================================
+  // Enemy AI
+  // ======================================
 
   useFrame((_, delta) => {
 
-    if (!rigidBodyRef.current) return;
+    if (!rigidBodyRef.current) {
+      return;
+    }
 
+
+    // ------------------------------------
+    // Enemy Position
+    // ------------------------------------
 
     const enemyPos =
       rigidBodyRef.current.translation();
 
 
+    // ------------------------------------
+    // Direction To Player
+    // ------------------------------------
+
     const direction =
-      playerPosition.current.clone().sub(
-        new THREE.Vector3(
-          enemyPos.x,
-          enemyPos.y,
-          enemyPos.z
-        )
-      );
+      playerPosition.current
+        .clone()
+        .sub(
+          new THREE.Vector3(
+            enemyPos.x,
+            enemyPos.y,
+            enemyPos.z
+          )
+        );
 
 
-    const distance = direction.length();
+    const distance =
+      direction.length();
 
+
+    // ------------------------------------
+    // Attack Range
+    // ------------------------------------
 
     const inHitRange =
-      playerCollidersInHitBlock.current.size > 0;
+      playerCollidersInHitBlock
+        .current
+        .size > 0;
 
 
-    // ==============================
-    // Timer
-    // ==============================
+    // ------------------------------------
+    // Attack Timer
+    // ------------------------------------
 
-    if (actionTimerRef.current > 0) {
-      actionTimerRef.current -= delta;
+    if (
+      actionTimerRef.current > 0
+    ) {
+
+      actionTimerRef.current -=
+        delta;
     }
 
 
-    // ==============================
-    // Enemy State
-    // ==============================
+    // ====================================
+    // Determine State
+    // ====================================
 
     let nextState:
       | "run"
@@ -131,6 +218,7 @@ export default function Enemy2({
       | "idle" = "idle";
 
 
+    // กำลังโจมตี
     if (
       actionTimerRef.current >
       ATTACK_COOLDOWN
@@ -138,14 +226,19 @@ export default function Enemy2({
 
       nextState = "attack";
 
+
+      // ช่วงพักหลังโจมตี
     } else if (
       actionTimerRef.current > 0
     ) {
 
       nextState = "idle";
 
+
+      // ไม่มี Timer
     } else {
 
+      // Player อยู่ในระยะโจมตี
       if (inHitRange) {
 
         actionTimerRef.current =
@@ -154,26 +247,31 @@ export default function Enemy2({
 
         nextState = "attack";
 
+
+        // Player อยู่ในระยะตรวจจับ
       } else if (
-        distance < ENEMY_DETECT_RANGE
+        distance <
+        ENEMY_DETECT_RANGE
       ) {
 
         nextState = "run";
 
+
+        // Player อยู่ไกล
       } else {
 
         nextState = "idle";
-
       }
     }
 
 
-    // ==============================
+    // ====================================
     // Change State
-    // ==============================
+    // ====================================
 
     if (
-      nextState !== stateRef.current
+      nextState !==
+      stateRef.current
     ) {
 
       stateRef.current =
@@ -185,14 +283,25 @@ export default function Enemy2({
     }
 
 
-    // ==============================
-    // Move
-    // ==============================
+    // ====================================
+    // Movement
+    // ====================================
 
-    if (nextState === "run") {
+    if (
+      nextState === "run"
+    ) {
 
-      direction.normalize();
+      if (
+        direction.lengthSq() > 0
+      ) {
 
+        direction.normalize();
+      }
+
+
+      // ----------------------------------
+      // Move Toward Player
+      // ----------------------------------
 
       rigidBodyRef.current.setLinvel(
         {
@@ -201,7 +310,8 @@ export default function Enemy2({
             ENEMY_SPEED,
 
           y:
-            rigidBodyRef.current.linvel().y,
+            rigidBodyRef.current
+              .linvel().y,
 
           z:
             direction.z *
@@ -211,7 +321,9 @@ export default function Enemy2({
       );
 
 
-      // หันหน้าเข้าหา Player
+      // ----------------------------------
+      // Rotate Toward Player
+      // ----------------------------------
 
       if (modelRef.current) {
 
@@ -230,7 +342,12 @@ export default function Enemy2({
           );
       }
 
+
     } else {
+
+      // ----------------------------------
+      // Stop Horizontal Movement
+      // ----------------------------------
 
       rigidBodyRef.current.setLinvel(
         {
@@ -248,6 +365,10 @@ export default function Enemy2({
   });
 
 
+  // ========================================
+  // Render
+  // ========================================
+
   return (
     <RigidBody
       ref={rigidBodyRef}
@@ -260,22 +381,24 @@ export default function Enemy2({
       canSleep={false}
     >
 
+      {/* ==================================
+          Strong Model
+          ================================== */}
+
       <group ref={modelRef}>
 
-        {/* Strong วิ่ง / ยืนนิ่ง */}
-
-       <group ref={modelRef}>
-  <Model
-    visible={true}
-    modelUrl={IDLE_MODEL_URL}
-    paused={false}
-  />
-</group>
+        <StrongModel
+          modelUrl={STRONG_IDLE_URL}
+          visible={true}
+          paused={false}
+        />
 
       </group>
 
 
-      {/* Collider หลัก */}
+      {/* ==================================
+          Main Collider
+          ================================== */}
 
       <CuboidCollider
         args={[
@@ -291,14 +414,13 @@ export default function Enemy2({
       />
 
 
-      {/* Attack Sensor */}
+      {/* ==================================
+          Attack Sensor
+          ================================== */}
+          {/* Sensor สำหรับตรวจจับ Player ว่าอยู่ในระยะโจมตีหรือไม่ */}
 
       <CuboidCollider
-        args={[
-          0.9,
-          ENEMY_HALF_HEIGHT,
-          0.9,
-        ]}
+        args={[0.6, 0.8, 0.6]}
         position={[
           0,
           ENEMY_COLLIDER_OFFSET_Y,
@@ -311,7 +433,8 @@ export default function Enemy2({
         }: RapierIntersectionEvent) => {
 
           if (
-            other.rigidBodyObject
+            other
+              .rigidBodyObject
               ?.name === "player"
           ) {
 
@@ -323,12 +446,14 @@ export default function Enemy2({
           }
         }}
 
+
         onIntersectionExit={({
           other,
         }: RapierIntersectionEvent) => {
 
           if (
-            other.rigidBodyObject
+            other
+              .rigidBodyObject
               ?.name === "player"
           ) {
 
