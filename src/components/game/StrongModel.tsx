@@ -8,7 +8,6 @@ import {
 } from "@react-three/drei";
 import { SkeletonUtils } from "three-stdlib";
 
-
 // ========================================
 // Strong Models
 // ========================================
@@ -22,55 +21,12 @@ export const STRONG_RUN_URL =
 export const STRONG_ATTACK_URL =
   "/player/StorngAttack.glb";
 
-
 // ========================================
-// Strong Model Settings
+// Settings
 // ========================================
 
-// ทั้ง 3 ไฟล์มีขนาด geometry เล็กมาก
-// ขนาด โมเดล
-// จึงต้องขยายให้เท่ากัน
 const MODEL_SCALE = 130;
-
-// จุดยืนของโมเดล
 const MODEL_OFFSET_Y = 0;
-
-
-// ========================================
-// Animation
-// ========================================
-
-function toInPlaceClip(
-  sourceClip: THREE.AnimationClip
-) {
-  const clip = sourceClip.clone();
-
-  for (const track of clip.tracks) {
-
-    if (!track.name.endsWith(".position")) {
-      continue;
-    }
-
-    if (!/hips/i.test(track.name)) {
-      continue;
-    }
-
-    for (
-      let i = 0;
-      i < track.values.length;
-      i += 3
-    ) {
-      // ล็อก Root Motion แนว X
-      track.values[i] = 0;
-
-      // ล็อก Root Motion แนว Y
-      track.values[i + 1] = 0;
-    }
-  }
-
-  return clip;
-}
-
 
 // ========================================
 // Props
@@ -83,9 +39,8 @@ type StrongModelProps =
     paused?: boolean;
   };
 
-
 // ========================================
-// StrongModel
+// Strong Model
 // ========================================
 
 export default function StrongModel({
@@ -99,10 +54,9 @@ export default function StrongModel({
     React.useRef<THREE.Group>(null);
 
   const previousAction =
-    React.useRef<
-      THREE.AnimationAction | null
-    >(null);
-
+    React.useRef<THREE.AnimationAction | null>(
+      null
+    );
 
   // ======================================
   // Load GLB
@@ -113,32 +67,27 @@ export default function StrongModel({
     animations,
   } = useGLTF(modelUrl);
 
-
   // ======================================
-  // Clone Skeleton
+  // Clone Model
   // ======================================
 
   const clonedScene =
     React.useMemo(
-      () =>
-        SkeletonUtils.clone(scene),
+      () => SkeletonUtils.clone(scene),
       [scene]
     );
 
-
   // ======================================
-  // Fix Root Motion
+  // IMPORTANT
+  // ======================================
+  // ไม่แก้ Root Motion
+  // ใช้ Animation จาก GLB โดยตรง
+  //
+  // เพราะ Strong Running / Attack
+  // ต้องใช้การเคลื่อนไหวของ Animation
   // ======================================
 
-  const inPlaceAnimations =
-    React.useMemo(
-      () =>
-        animations.map(
-          toInPlaceClip
-        ),
-      [animations]
-    );
-
+  const strongAnimations = animations;
 
   // ======================================
   // Mesh Settings
@@ -156,7 +105,7 @@ export default function StrongModel({
           object.castShadow = true;
           object.receiveShadow = true;
 
-          // ป้องกันโมเดลหายจาก Frustum
+          // ป้องกันโมเดลหาย
           object.frustumCulled = false;
         }
 
@@ -164,7 +113,6 @@ export default function StrongModel({
     );
 
   }, [clonedScene]);
-
 
   // ======================================
   // Animation Controller
@@ -174,17 +122,19 @@ export default function StrongModel({
     actions,
     names,
   } = useAnimations(
-    inPlaceAnimations,
+    strongAnimations,
     groupRef
   );
 
-
   console.log(
-    "STRONG:",
-    modelUrl,
-    names
+    "STRONG MODEL:",
+    modelUrl
   );
 
+  console.log(
+    "STRONG ANIMATIONS:",
+    names
+  );
 
   // ======================================
   // เลือก Animation
@@ -199,7 +149,6 @@ export default function StrongModel({
         )
         ? animation
         : names[0];
-
 
   // ======================================
   // Play Animation
@@ -216,18 +165,17 @@ export default function StrongModel({
       return;
     }
 
-
     const previous =
       previousAction.current;
-
 
     previousAction.current =
       action;
 
+    // เริ่ม Animation
+    action.reset();
+    action.play();
 
-    action.reset().play();
-
-
+    // ถ้าเปลี่ยน Animation
     if (
       previous &&
       previous !== action
@@ -239,17 +187,16 @@ export default function StrongModel({
 
       previous.fadeOut(0.2);
 
-      return;
+    } else {
+
+      action.setEffectiveWeight(1);
+
     }
-
-
-    action.setEffectiveWeight(1);
 
   }, [
     actions,
     clipName,
   ]);
-
 
   // ======================================
   // Pause / Run
@@ -266,7 +213,6 @@ export default function StrongModel({
       return;
     }
 
-
     action.setEffectiveTimeScale(
       paused ? 0 : 1
     );
@@ -276,7 +222,6 @@ export default function StrongModel({
     clipName,
     paused,
   ]);
-
 
   // ======================================
   // Render
@@ -288,8 +233,6 @@ export default function StrongModel({
       {...groupProps}
       dispose={null}
     >
-
-      {/* จุดอ้างอิงเดียวกันทั้ง 3 โมเดล */}
 
       <group
         position={[
@@ -313,7 +256,6 @@ export default function StrongModel({
     </group>
   );
 }
-
 
 // ========================================
 // Preload

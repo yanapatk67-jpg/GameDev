@@ -389,7 +389,19 @@ export default function Enemy2({
 
         <StrongModel
           modelUrl={STRONG_IDLE_URL}
-          visible={true}
+          visible={enemyState === "idle"}
+          paused={false}
+        />
+
+        <StrongModel
+          modelUrl={STRONG_RUN_URL}
+          visible={enemyState === "run"}
+          paused={false}
+        />
+
+        <StrongModel
+          modelUrl={STRONG_ATTACK_URL}
+          visible={enemyState === "attack"}
           paused={false}
         />
 
@@ -417,7 +429,7 @@ export default function Enemy2({
       {/* ==================================
           Attack Sensor
           ================================== */}
-          {/* Sensor สำหรับตรวจจับ Player ว่าอยู่ในระยะโจมตีหรือไม่ */}
+      {/* Sensor สำหรับตรวจจับ Player ว่าอยู่ในระยะโจมตีหรือไม่ */}
 
       <CuboidCollider
         args={[0.6, 0.8, 0.6]}
